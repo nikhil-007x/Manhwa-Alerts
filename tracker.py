@@ -46,18 +46,29 @@ def fmt(num: float) -> str:
 def get_latest_chapter(series_url: str) -> float:
     """Return the highest chapter number linked from the series page."""
     path = urlparse(series_url).path.rstrip("/")
-    resp = http.get(series_url, headers=HEADERS, timeout=30, **EXTRA)
-    resp.raise_for_status()
+    slug = path.split("/")[-1].lower()
+    core = re.sub(r"-[0-9a-f]{6,10}$", "", slug)  # slug without trailing hash
 
-    # Match only chapter links that belong to THIS series
-    # (ignores 'popular' / 'recommended' sidebars).
-    pattern = re.escape(path) + r"/chapter/(\d+(?:\.\d+)?)"
-    found = [float(n) for n in re.findall(pattern, resp.text)]
-    if not found:
-        raise RuntimeError(
-            "No chapter links found. Check the URL, or the site layout changed."
-        )
-    return max(found)
+    resp = http.get(series_url, headers=HEADERS, timeout=30, **EXTRA)
+    text = resp.text.replace("\\/", "/")  # un-escape JSON-style slashes
+
+    # Find every ".../chapter/N" or ".../chapter-N" and keep only the ones
+    # whose URL contains THIS series' slug (ignores sidebars/other series).
+    found = []
+    for m in re.finditer(r"""([^\s"'<>()]*?)/chapter[/-](\d+(?:\.\d+)?)""", text):
+        if core in m.group(1).lower():
+            found.append(float(m.group(2)))
+    if found:
+        return max(found)
+
+    # Nothing found: print diagnostics so we can see why.
+    title = re.search(r"<title>(.*?)</title>", text, re.S | re.I)
+    i = text.lower().find("chapter")
+    print(f"  [debug] status={resp.status_code} final_url={resp.url}")
+    print(f"  [debug] title={title.group(1).strip()[:100] if title else None} length={len(text)}")
+    print(f"  [debug] 'chapter' appears {text.lower().count('chapter')} times")
+    print(f"  [debug] sample: {text[max(0, i-80):i+160]!r}" if i >= 0 else "  [debug] no 'chapter' text at all")
+    raise RuntimeError(f"No chapter links found (HTTP {resp.status_code}).")
 
 
 def send_telegram(text: str) -> None:
