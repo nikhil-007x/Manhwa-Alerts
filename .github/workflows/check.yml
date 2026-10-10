@@ -2,7 +2,7 @@ name: Check new chapters
 
 on:
   schedule:
-    - cron: "0 */3 * * *"     # every 3 hours
+    - cron: "17 * * * *"      # every hour at minute 17 (off-peak)
   workflow_dispatch:          # lets you run it manually from the Actions tab
 
 permissions:
