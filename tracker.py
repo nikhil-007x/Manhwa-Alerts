@@ -45,6 +45,14 @@ def fmt(num: float) -> str:
     return str(int(num)) if float(num).is_integer() else str(num)
 
 
+def clean_series_url(url: str) -> str:
+    """Strip any trailing '/chapter/N' so the URL is the series page."""
+    url = url.strip().rstrip("/")
+    while re.search(r"/chapter[/-]\d+(?:\.\d+)?$", url):
+        url = re.sub(r"/chapter[/-]\d+(?:\.\d+)?$", "", url)
+    return url
+
+
 def chapter_from_url(u: str):
     """'.../chapter/72' -> 72.0, else None."""
     m = re.search(r"/chapter[/-](\d+(?:\.\d+)?)/?(?:[?#].*)?$", u)
@@ -123,7 +131,12 @@ def main() -> int:
     failures = 0
 
     for s in series_list:
-        name, url = s["name"], s["url"].rstrip("/")
+        name = s["name"]
+        raw_url = s["url"].strip().rstrip("/")
+        url = clean_series_url(raw_url)
+        # migrate state saved under an old, un-cleaned URL
+        if url not in state and raw_url in state:
+            state[url] = state.pop(raw_url)
         try:
             latest = get_latest_chapter(url)
         except Exception as e:
