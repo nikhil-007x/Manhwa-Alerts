@@ -5,7 +5,7 @@ Get a **Telegram message on your phone** whenever a manhwa you follow on [Asura 
 It runs for free on **GitHub Actions**. No server, no app, and nothing to keep running on your PC.
 
 ```
-GitHub Actions (every 4 hours)
+GitHub Actions (every hour)
         │
         ▼
  tracker.py  ──►  checks each series on Asura Scans
@@ -138,8 +138,8 @@ You don't need to do anything. You get a Telegram message when a new chapter app
 
 | Cron | Runs |
 |---|---|
-| `0 */4 * * *` | every 4 hours (default) |
-| `0 * * * *` | every hour |
+| `17 * * * *` | every hour at minute 17 (default) |
+| `0 */4 * * *` | every 4 hours |
 | `0 */12 * * *` | every 12 hours |
 
 Times are in UTC. GitHub may delay scheduled runs by 5–15 minutes. Checking more often than hourly isn't recommended.
