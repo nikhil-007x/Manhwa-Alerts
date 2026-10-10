@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 # curl_cffi mimics a real Chrome browser (helps against Cloudflare).
 # Falls back to plain requests if it isn't installed.
@@ -34,6 +34,8 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+MAX_HOPS = 15  # max "next chapter" pages to follow per series
+
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
@@ -43,32 +45,63 @@ def fmt(num: float) -> str:
     return str(int(num)) if float(num).is_integer() else str(num)
 
 
+def chapter_from_url(u: str):
+    """'.../chapter/72' -> 72.0, else None."""
+    m = re.search(r"/chapter[/-](\d+(?:\.\d+)?)/?(?:[?#].*)?$", u)
+    return float(m.group(1)) if m else None
+
+
+def find_next_link(text: str):
+    """Return href of <link rel="next"> / <a rel="next"> if present."""
+    for tag in re.findall(r"<(?:link|a)\b[^>]*>", text):
+        if re.search(r"""rel=["']?next""", tag):
+            m = re.search(r"""href=["']([^"']+)["']""", tag)
+            if m:
+                return m.group(1)
+    return None
+
+
 def get_latest_chapter(series_url: str) -> float:
-    """Return the highest chapter number linked from the series page."""
-    path = urlparse(series_url).path.rstrip("/")
-    slug = path.split("/")[-1].lower()
-    core = re.sub(r"-[0-9a-f]{6,10}$", "", slug)  # slug without trailing hash
+    """
+    Asura redirects a series URL to a chapter page, so we:
+      1. read the chapter number from the final URL,
+      2. read any chapter links for this series on the page,
+      3. follow rel="next" links (if any) until the newest chapter.
+    """
+    slug = urlparse(series_url).path.rstrip("/").split("/")[-1].lower()
+    core = re.sub(r"-[0-9a-f]{6,10}$", "", slug)
 
     resp = http.get(series_url, headers=HEADERS, timeout=30, **EXTRA)
-    text = resp.text.replace("\\/", "/")  # un-escape JSON-style slashes
+    candidates, seen = [], set()
 
-    # Find every ".../chapter/N" or ".../chapter-N" and keep only the ones
-    # whose URL contains THIS series' slug (ignores sidebars/other series).
-    found = []
-    for m in re.finditer(r"""([^\s"'<>()]*?)/chapter[/-](\d+(?:\.\d+)?)""", text):
-        if core in m.group(1).lower():
-            found.append(float(m.group(2)))
-    if found:
-        return max(found)
+    for _ in range(MAX_HOPS):
+        final = str(resp.url)
+        n = chapter_from_url(final)
+        if n is not None:
+            candidates.append(n)
 
-    # Nothing found: print diagnostics so we can see why.
-    title = re.search(r"<title>(.*?)</title>", text, re.S | re.I)
-    i = text.lower().find("chapter")
+        text = resp.text.replace("\\/", "/")
+        for m in re.finditer(r"""([^\s"'<>()]*?)/chapter[/-](\d+(?:\.\d+)?)""", text):
+            if core in m.group(1).lower():
+                candidates.append(float(m.group(2)))
+
+        nxt = find_next_link(text)
+        if not nxt:
+            break
+        nxt_url = urljoin(final, nxt)
+        if nxt_url in seen or chapter_from_url(nxt_url) is None:
+            break
+        seen.add(nxt_url)
+        time.sleep(1)
+        resp = http.get(nxt_url, headers=HEADERS, timeout=30, **EXTRA)
+
+    if candidates:
+        return max(candidates)
+
+    title = re.search(r"<title>(.*?)</title>", resp.text, re.S | re.I)
     print(f"  [debug] status={resp.status_code} final_url={resp.url}")
-    print(f"  [debug] title={title.group(1).strip()[:100] if title else None} length={len(text)}")
-    print(f"  [debug] 'chapter' appears {text.lower().count('chapter')} times")
-    print(f"  [debug] sample: {text[max(0, i-80):i+160]!r}" if i >= 0 else "  [debug] no 'chapter' text at all")
-    raise RuntimeError(f"No chapter links found (HTTP {resp.status_code}).")
+    print(f"  [debug] title={title.group(1).strip()[:100] if title else None} length={len(resp.text)}")
+    raise RuntimeError(f"No chapter found (HTTP {resp.status_code}).")
 
 
 def send_telegram(text: str) -> None:
