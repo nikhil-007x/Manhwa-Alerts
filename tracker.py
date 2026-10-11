@@ -113,16 +113,22 @@ def get_latest_chapter(series_url: str) -> float:
 
 
 def send_telegram(text: str) -> None:
-    if not BOT_TOKEN or not CHAT_ID:
+    """Send to every chat ID in TELEGRAM_CHAT_ID (comma-separated)."""
+    chat_ids = [c.strip() for c in CHAT_ID.split(",") if c.strip()]
+    if not BOT_TOKEN or not chat_ids:
         print(f"[no Telegram creds] {text}")
         return
-    r = http.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        data={"chat_id": CHAT_ID, "text": text, "disable_web_page_preview": "false"},
-        timeout=30,
-    )
-    if r.status_code != 200:
-        print(f"Telegram error {r.status_code}: {r.text}")
+    for chat_id in chat_ids:
+        try:
+            r = http.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                data={"chat_id": chat_id, "text": text},
+                timeout=30,
+            )
+            if r.status_code != 200:
+                print(f"Telegram error for {chat_id}: {r.status_code} {r.text}")
+        except Exception as ex:
+            print(f"Telegram error for {chat_id}: {ex}")
 
 
 def main() -> int:
