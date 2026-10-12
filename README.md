@@ -1,6 +1,6 @@
-# Manhwa Chapter Alerts (Asura Scans → Telegram)
+# Manhwa Chapter Alerts (Asura Scans, Mgeko, Demonic Scans, Vortex Scans → Telegram)
 
-Get a **Telegram message on your phone** whenever a manhwa you follow on [Asura Scans](https://asurascans.com) releases a new chapter.
+Get a **Telegram message on your phone** whenever a manhwa you follow on **Asura Scans, Mgeko, Demonic Scans or Vortex Scans** releases a new chapter. You can mix sites in one list.
 
 It runs for free on **GitHub Actions**. No server, no app, and nothing to keep running on your PC.
 
@@ -26,6 +26,21 @@ GitHub Actions (every hour)
 - First run saves current chapters silently, so you aren't flooded
 - One failing series doesn't stop the others
 - Prints debug info if a site check fails
+
+---
+
+## Supported sites
+
+| Site | URL to put in `series.json` | Example |
+|---|---|---|
+| Asura Scans | the series page | `https://asurascans.com/comics/nano-machine-bd5bdaf8` |
+| Mgeko | the series page, or any chapter link (it finds the series itself) | `https://www.mgeko.cc/manga/the-genius-girl/` |
+| Demonic Scans | the series page, or any chapter link | `https://demonicscans.org/manga/Golden-Martial-God` |
+| Vortex Scans | the series page, or any chapter link | `https://vortexscans.org/series/regressing-as-the-reincarnated-bastard` |
+
+Vortex's public chapter list can lag behind the newest chapters, so for Vortex the script also checks the next chapter numbers directly.
+
+Other sites that use `.../chapter/N` links may work too (they use the same method as Asura). Try one and read the log.
 
 ---
 
@@ -94,16 +109,23 @@ Edit `series.json`:
     "url": "https://asurascans.com/comics/reincarnation-of-the-fist-king-bd5bdaf8"
   },
   {
-    "name": "Another Series",
-    "url": "https://asurascans.com/comics/another-series-xxxxxxxx"
+    "name": "The Genius Girl",
+    "url": "https://www.mgeko.cc/manga/the-genius-girl/"
+  },
+  {
+    "name": "Golden Martial God",
+    "url": "https://demonicscans.org/manga/Golden-Martial-God"
+  },
+  {
+    "name": "Regressing as the Reincarnated Bastard",
+    "url": "https://vortexscans.org/series/regressing-as-the-reincarnated-bastard"
   }
 ]
 ```
 
 **How to get the URL:**
-1. Open the series on asurascans.com.
-2. Copy the address ending in `/comics/<name>-<code>`.
-3. If the address ends with `/chapter/NN`, delete that part.
+1. Open the series on its site and copy the address of the series page (the one listing all chapters).
+2. Pasting a chapter link also works for Mgeko, Demonic Scans and Asura. The script finds the series from it.
 
 `name` is just the label shown in your alert. Call it anything.
 
@@ -192,7 +214,7 @@ To check on a schedule, use `cron` on Linux/macOS or Task Scheduler on Windows.
 
 ## Notes and limitations
 
-- Asura Scans has no official API. This tool reads the public website, so a site redesign, domain change or stronger bot protection can break it. The `[debug]` output in the log helps diagnose this.
+- These sites have no official API. This tool reads the public website, so a site redesign, domain change or stronger bot protection can break it. The `[debug]` output in the log helps diagnose this.
 - Please keep the check interval reasonable (1–4 hours) to avoid putting load on the site, and respect the site's terms of use.
 - This is an unofficial personal tool and is not affiliated with Asura Scans.
 - Never commit your bot token. Keep it in GitHub **Secrets** only.
